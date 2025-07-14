@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CurrencySelector } from "@/components/Currency/CurrencySelector";
 import { 
   Building2, 
   LayoutDashboard, 
@@ -83,6 +84,7 @@ export const DashboardLayout = ({
           </div>
           
           <div className="ml-auto flex items-center gap-4">
+            <CurrencySelector />
             <div className="text-right">
               <p className="text-sm font-medium">{user.name}</p>
               <p className="text-xs text-muted-foreground capitalize">{user.role}</p>

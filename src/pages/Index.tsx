@@ -1,46 +1,44 @@
-import { useState } from "react";
-import { LoginForm } from "@/components/Auth/LoginForm";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
 import { SuperAdminDashboard } from "@/components/Dashboard/SuperAdminDashboard";
 import { LandlordDashboard } from "@/components/Dashboard/LandlordDashboard";
 import { TenantDashboard } from "@/components/Dashboard/TenantDashboard";
-import { PropertyManagement } from "@/components/Properties/PropertyManagement";
+import { PropertyManagement } from "@/components/Properties/PropertyManagementReal";
 import { LeaseManagement } from "@/components/Leases/LeaseManagement";
 import { PaymentPortal } from "@/components/Payments/PaymentPortal";
 import { MaintenancePortal } from "@/components/Maintenance/MaintenancePortal";
 import { UserManagement } from "@/components/Users/UserManagement";
-
-interface User {
-  email: string;
-  role: string;
-  name: string;
-}
+import { CurrencySettings } from "@/components/Settings/CurrencySettings";
+import { PaymentMethodsSettings } from "@/components/Settings/PaymentMethodsSettings";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { user, profile, loading, signOut } = useAuth();
+  const navigate = useNavigate();
 
-  const handleLogin = (userData: User) => {
-    setUser(userData);
-    setActiveTab("dashboard");
-  };
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
 
   const handleLogout = () => {
-    setUser(null);
-    setActiveTab("dashboard");
+    signOut();
   };
 
   const renderContent = () => {
-    if (!user) return null;
+    if (!profile) return null;
 
     switch (activeTab) {
       case "dashboard":
-        if (user.role === "superadmin") return <SuperAdminDashboard />;
-        if (user.role === "landlord") return <LandlordDashboard />;
+        if (profile.role === "superadmin") return <SuperAdminDashboard />;
+        if (profile.role === "landlord") return <LandlordDashboard />;
         return <TenantDashboard />;
       
       case "users":
-        return user.role === "superadmin" ? <UserManagement /> : <div>Access denied</div>;
+        return profile.role === "superadmin" ? <UserManagement /> : <div>Access denied</div>;
       
       case "properties":
         return <PropertyManagement />;
@@ -51,23 +49,42 @@ const Index = () => {
         return <LeaseManagement />;
       
       case "payments":
-        return <PaymentPortal userRole={user.role} />;
+        return <PaymentPortal userRole={profile.role} />;
       
       case "maintenance":
-        return <MaintenancePortal userRole={user.role} />;
+        return <MaintenancePortal userRole={profile.role} />;
+      
+      case "settings":
+        return profile.role === "superadmin" ? (
+          <div className="space-y-6">
+            <CurrencySettings />
+            <PaymentMethodsSettings />
+          </div>
+        ) : <div>Access denied</div>;
       
       default:
         return <div>Page not found</div>;
     }
   };
 
-  if (!user) {
-    return <LoginForm onLogin={handleLogin} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return null; // Will redirect to auth page
   }
 
   return (
     <DashboardLayout
-      user={user}
+      user={{ name: profile.name, email: profile.email, role: profile.role }}
       onLogout={handleLogout}
       activeTab={activeTab}
       onTabChange={setActiveTab}
