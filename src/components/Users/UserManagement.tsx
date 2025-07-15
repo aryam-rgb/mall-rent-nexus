@@ -154,7 +154,10 @@ export const UserManagement = () => {
               
               <div className="flex justify-end gap-2">
                 <Button variant="outline">Cancel</Button>
-                <Button>Create User</Button>
+                <Button onClick={() => {
+                  // Here you would typically send user data to your backend
+                  console.log("Creating user...");
+                }}>Create User</Button>
               </div>
             </div>
           </DialogContent>

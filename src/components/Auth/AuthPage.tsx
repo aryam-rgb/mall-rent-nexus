@@ -9,7 +9,7 @@ import { Building2, Mail, Lock, User, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin] = useState(true); // Only login allowed
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -32,24 +32,7 @@ export const AuthPage = () => {
             variant: "destructive",
           });
         }
-      } else {
-        if (!name || !role) {
-          toast({
-            title: "Error",
-            description: "Please fill in all fields",
-            variant: "destructive",
-          });
-          return;
         }
-        const { error } = await signUp(email, password, name, role);
-        if (error) {
-          toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-      }
     } catch (error) {
       console.error("Auth error:", error);
     } finally {
@@ -65,34 +48,14 @@ export const AuthPage = () => {
             <Building2 className="h-6 w-6 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl">
-            {isLogin ? "Welcome Back" : "Create Account"}
+            Welcome Back
           </CardTitle>
           <CardDescription>
-            {isLogin 
-              ? "Sign in to access your mall management dashboard" 
-              : "Join our mall management platform"
-            }
+            Sign in to access your mall management dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Full Name
-                </Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required={!isLogin}
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email" className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
@@ -123,41 +86,17 @@ export const AuthPage = () => {
               />
             </div>
 
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="role" className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4" />
-                  Role
-                </Label>
-                <Select value={role} onValueChange={setRole} required={!isLogin}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tenant">Tenant</SelectItem>
-                    <SelectItem value="landlord">Landlord</SelectItem>
-                    <SelectItem value="superadmin">Super Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Please wait..." : (isLogin ? "Sign In" : "Create Account")}
+              {loading ? "Please wait..." : "Sign In"}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
-            <Button
-              variant="link"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm"
-            >
-              {isLogin 
-                ? "Don't have an account? Sign up" 
-                : "Already have an account? Sign in"
-              }
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              Access restricted to authorized users only.
+              <br />
+              Contact your administrator for account creation.
+            </p>
           </div>
         </CardContent>
       </Card>

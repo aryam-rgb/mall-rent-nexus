@@ -5,10 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { CreditCard, Download, Search, DollarSign, Calendar, CheckCircle, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PaymentModal } from "./PaymentModal";
 
 export const PaymentPortal = ({ userRole }: { userRole: string }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   
   const payments = [
     {
@@ -50,6 +53,18 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
       paidDate: null,
       status: "overdue",
       method: null
+    },
+    {
+      id: 5,
+      tenant: "Pharmacy Plus",
+      property: "Shopping Center A - Unit 103",
+      amount: "$2,200",
+      dueDate: "Dec 1, 2024",
+      paidDate: "Nov 30, 2024",
+      status: "partial",
+      method: "Bank Transfer",
+      paidAmount: "$1,100",
+      remainingAmount: "$1,100"
     }
   ];
 
@@ -64,6 +79,8 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
     switch (status) {
       case "paid":
         return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case "partial":
+        return <DollarSign className="w-4 h-4 text-blue-600" />;
       case "overdue":
         return <AlertCircle className="w-4 h-4 text-red-600" />;
       default:
@@ -75,6 +92,8 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
     switch (status) {
       case "paid":
         return "default";
+      case "partial":
+        return "outline";
       case "overdue":
         return "destructive";
       default:
@@ -158,6 +177,7 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
               <SelectContent>
                 <SelectItem value="all">All Payments</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
               </SelectContent>
@@ -207,8 +227,16 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Amount</p>
+                        <p className="text-muted-foreground">
+                          {payment.status === "partial" ? "Total Amount" : "Amount"}
+                        </p>
                         <p className="font-medium text-lg">{payment.amount}</p>
+                        {payment.status === "partial" && (
+                          <div className="mt-1">
+                            <p className="text-xs text-muted-foreground">Paid: {payment.paidAmount}</p>
+                            <p className="text-xs text-orange-600">Remaining: {payment.remainingAmount}</p>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <p className="text-muted-foreground">Due Date</p>
@@ -233,10 +261,17 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
                     <Button size="sm" variant="outline">
                       View Details
                     </Button>
-                    {payment.status === "pending" && userRole === "tenant" && (
-                      <Button size="sm" className="gap-1">
+                    {(payment.status === "pending" || payment.status === "partial") && userRole === "tenant" && (
+                      <Button 
+                        size="sm" 
+                        className="gap-1"
+                        onClick={() => {
+                          setSelectedPayment(payment);
+                          setIsPaymentModalOpen(true);
+                        }}
+                      >
                         <CreditCard className="w-3 h-3" />
-                        Pay Now
+                        {payment.status === "partial" ? "Pay Balance" : "Pay Now"}
                       </Button>
                     )}
                   </div>
@@ -246,6 +281,19 @@ export const PaymentPortal = ({ userRole }: { userRole: string }) => {
           </div>
         </CardContent>
       </Card>
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setSelectedPayment(null);
+        }}
+        payment={selectedPayment}
+        onPaymentSubmit={(paymentData) => {
+          console.log("Payment submitted:", paymentData);
+          // Here you would typically send the payment data to your backend
+        }}
+      />
     </div>
   );
 };
