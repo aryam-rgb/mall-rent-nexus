@@ -17,8 +17,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string, role: string) => Promise<{ error: any }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string, role: string, username: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -87,8 +87,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
     try {
+      // First check if identifier is username or email by querying our function
+      const { data: userInfo, error: userError } = await supabase.rpc(
+        'get_user_by_username_or_email',
+        { identifier }
+      );
+
+      if (userError || !userInfo || userInfo.length === 0) {
+        throw new Error("User not found");
+      }
+
+      // Use email to sign in with Supabase Auth
+      const email = userInfo[0].email;
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -101,6 +113,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           title: "Welcome back!",
           description: "You have successfully signed in.",
         });
+        
+        // Redirect to dashboard after successful login
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
       }
 
       return { error: null };
@@ -109,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string, role: string) => {
+  const signUp = async (email: string, password: string, name: string, role: string, username: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -121,6 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             name,
             role,
+            username,
           },
         },
       });

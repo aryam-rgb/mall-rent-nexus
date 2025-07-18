@@ -10,12 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 
 export const AuthPage = () => {
   const [isLogin] = useState(true); // Only login allowed
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,16 +21,14 @@ export const AuthPage = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-        }
+      const { error } = await signIn(identifier, password);
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Auth error:", error);
     } finally {
@@ -57,16 +53,16 @@ export const AuthPage = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Email
+              <Label htmlFor="identifier" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Username or Email
               </Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                id="identifier"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Enter your username or email"
                 required
               />
             </div>
@@ -91,7 +87,30 @@ export const AuthPage = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-4">
+            <div className="border-t pt-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                Multi-Tenant Access Control
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-red-50 dark:bg-red-950 p-2 rounded border">
+                  <UserCheck className="h-4 w-4 mx-auto mb-1 text-red-600" />
+                  <div className="font-medium text-red-700 dark:text-red-300">Super Admin</div>
+                  <div className="text-red-600 dark:text-red-400">Full Control</div>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded border">
+                  <Building2 className="h-4 w-4 mx-auto mb-1 text-blue-600" />
+                  <div className="font-medium text-blue-700 dark:text-blue-300">Landlord</div>
+                  <div className="text-blue-600 dark:text-blue-400">Property Mgmt</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-950 p-2 rounded border">
+                  <User className="h-4 w-4 mx-auto mb-1 text-green-600" />
+                  <div className="font-medium text-green-700 dark:text-green-300">Tenant</div>
+                  <div className="text-green-600 dark:text-green-400">View & Pay</div>
+                </div>
+              </div>
+            </div>
+            
             <p className="text-sm text-muted-foreground">
               Access restricted to authorized users only.
               <br />

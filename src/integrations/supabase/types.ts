@@ -307,6 +307,7 @@ export type Database = {
           role: string
           updated_at: string
           user_id: string | null
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -318,6 +319,7 @@ export type Database = {
           role: string
           updated_at?: string
           user_id?: string | null
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           role?: string
           updated_at?: string
           user_id?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -393,7 +396,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_by_username_or_email: {
+        Args: { identifier: string }
+        Returns: {
+          user_id: string
+          email: string
+          username: string
+          role: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

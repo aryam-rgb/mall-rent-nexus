@@ -123,9 +123,14 @@ export const UserManagement = () => {
                   <Input id="userName" placeholder="Enter full name" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="userEmail">Email</Label>
-                  <Input id="userEmail" type="email" placeholder="Enter email address" />
+                  <Label htmlFor="userUsername">Username</Label>
+                  <Input id="userUsername" placeholder="Enter unique username" />
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="userEmail">Email</Label>
+                <Input id="userEmail" type="email" placeholder="Enter email address" />
               </div>
               
               <div className="grid gap-4 md:grid-cols-2">
