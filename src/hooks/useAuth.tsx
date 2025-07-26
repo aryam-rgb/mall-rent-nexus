@@ -89,22 +89,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (identifier: string, password: string) => {
     try {
+      console.log("Starting sign in with identifier:", identifier);
+      
       // First check if identifier is username or email by querying our function
       const { data: userInfo, error: userError } = await supabase.rpc(
         'get_user_by_username_or_email',
         { identifier }
       );
 
+      console.log("User lookup result:", { userInfo, userError });
+
       if (userError || !userInfo || userInfo.length === 0) {
+        console.error("User not found:", userError);
         throw new Error("User not found");
       }
 
       // Use email to sign in with Supabase Auth
       const email = userInfo[0].email;
+      console.log("Attempting to sign in with email:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      console.log("Supabase auth result:", { data, error });
 
       if (error) throw error;
 
