@@ -1,52 +1,162 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building2, Users, DollarSign, Wrench, Plus, TrendingUp } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/hooks/useCurrency";
+
+interface LandlordStats {
+  myProperties: number;
+  activeTenants: number;
+  monthlyIncome: number;
+  maintenanceRequests: number;
+  urgentMaintenance: number;
+}
+
+interface Property {
+  id: string;
+  name: string;
+  unit_number: string;
+  rent_amount: number;
+  currency: string;
+  status: string;
+  tenant_name?: string;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  payment_date: string;
+  status: string;
+  tenant_name?: string;
+}
 
 export const LandlordDashboard = () => {
-  const stats = [
+  const [stats, setStats] = useState<LandlordStats>({
+    myProperties: 0,
+    activeTenants: 0,
+    monthlyIncome: 0,
+    maintenanceRequests: 0,
+    urgentMaintenance: 0
+  });
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
+  const { formatAmount } = useCurrency();
+
+  useEffect(() => {
+    if (profile) {
+      fetchLandlordData();
+    }
+  }, [profile]);
+
+  const fetchLandlordData = async () => {
+    if (!profile) return;
+
+    try {
+      // Fetch landlord's properties
+      const { data: propertiesData, count: propertiesCount } = await supabase
+        .from('properties')
+        .select('id, name, unit_number, rent_amount, currency, status', { count: 'exact' })
+        .eq('landlord_id', profile.id);
+
+      // Fetch active leases for this landlord
+      const { data: leasesData, count: tenantsCount } = await supabase
+        .from('leases')
+        .select('tenant_id, property_id', { count: 'exact' })
+        .eq('landlord_id', profile.id)
+        .eq('status', 'active');
+
+      // Fetch this month's income
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('landlord_id', profile.id)
+        .eq('status', 'paid')
+        .gte('payment_date', `${currentMonth}-01`);
+
+      const monthlyIncome = paymentsData?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+
+      // Fetch maintenance requests
+      const { count: maintenanceCount } = await supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('landlord_id', profile.id)
+        .eq('status', 'pending');
+
+      const { count: urgentCount } = await supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('landlord_id', profile.id)
+        .eq('priority', 'high')
+        .eq('status', 'pending');
+
+      // Fetch recent payments
+      const { data: recentPaymentsData } = await supabase
+        .from('payments')
+        .select('id, amount, payment_date, status')
+        .eq('landlord_id', profile.id)
+        .order('payment_date', { ascending: false })
+        .limit(5);
+
+      setStats({
+        myProperties: propertiesCount || 0,
+        activeTenants: tenantsCount || 0,
+        monthlyIncome,
+        maintenanceRequests: maintenanceCount || 0,
+        urgentMaintenance: urgentCount || 0
+      });
+
+      setProperties(propertiesData?.map(prop => ({
+        ...prop,
+        tenant_name: prop.status === 'occupied' ? 'Tenant' : 'Available'
+      })) || []);
+
+      setRecentPayments(recentPaymentsData?.map(payment => ({
+        ...payment,
+        tenant_name: 'Tenant'
+      })) || []);
+
+    } catch (error) {
+      console.error('Error fetching landlord data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const dashboardStats = [
     {
       title: "My Properties",
-      value: "8",
-      change: "100% occupied",
+      value: loading ? "..." : stats.myProperties.toString(),
+      change: `${properties.filter(p => p.status === 'occupied').length}/${stats.myProperties} occupied`,
       icon: Building2,
       color: "bg-blue-500"
     },
     {
       title: "Active Tenants",
-      value: "24",
-      change: "All current",
+      value: loading ? "..." : stats.activeTenants.toString(),
+      change: "Current leases",
       icon: Users,
       color: "bg-green-500"
     },
     {
       title: "Monthly Income",
-      value: "$18,450",
-      change: "+5.2% from last month",
+      value: loading ? "..." : formatAmount(stats.monthlyIncome, 'USD'),
+      change: "This month's revenue",
       icon: DollarSign,
       color: "bg-purple-500"
     },
     {
       title: "Maintenance Requests",
-      value: "3",
-      change: "1 urgent",
+      value: loading ? "..." : stats.maintenanceRequests.toString(),
+      change: `${stats.urgentMaintenance} urgent`,
       icon: Wrench,
       color: "bg-orange-500"
     }
-  ];
-
-  const properties = [
-    { id: 1, name: "Shopping Center A - Unit 101", tenant: "Coffee Shop Co.", rent: "$2,500", status: "occupied" },
-    { id: 2, name: "Shopping Center A - Unit 102", tenant: "Fashion Boutique", rent: "$3,200", status: "occupied" },
-    { id: 3, name: "Shopping Center B - Unit 201", tenant: "Electronics Store", rent: "$4,100", status: "occupied" },
-    { id: 4, name: "Shopping Center B - Unit 205", tenant: "Available", rent: "$2,800", status: "vacant" }
-  ];
-
-  const recentPayments = [
-    { tenant: "Coffee Shop Co.", amount: "$2,500", date: "Nov 1, 2024", status: "paid" },
-    { tenant: "Fashion Boutique", amount: "$3,200", date: "Nov 1, 2024", status: "paid" },
-    { tenant: "Electronics Store", amount: "$4,100", date: "Nov 1, 2024", status: "pending" },
-    { tenant: "Book Store", amount: "$1,800", date: "Oct 28, 2024", status: "overdue" }
   ];
 
   return (
@@ -66,7 +176,7 @@ export const LandlordDashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => {
+        {dashboardStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card key={index}>
@@ -102,11 +212,11 @@ export const LandlordDashboard = () => {
             {properties.map((property) => (
               <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium text-sm">{property.name}</p>
-                  <p className="text-xs text-muted-foreground">{property.tenant}</p>
+                  <p className="font-medium text-sm">{property.name} - {property.unit_number}</p>
+                  <p className="text-xs text-muted-foreground">{property.tenant_name}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-sm">{property.rent}</p>
+                  <p className="font-medium text-sm">{formatAmount(property.rent_amount, property.currency as 'USD' | 'UGX')}</p>
                   <Badge variant={property.status === "occupied" ? "default" : "secondary"}>
                     {property.status}
                   </Badge>
@@ -128,11 +238,11 @@ export const LandlordDashboard = () => {
             {recentPayments.map((payment, index) => (
               <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium text-sm">{payment.tenant}</p>
-                  <p className="text-xs text-muted-foreground">{payment.date}</p>
+                  <p className="font-medium text-sm">{payment.tenant_name}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(payment.payment_date).toLocaleDateString()}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-sm">{payment.amount}</p>
+                  <p className="font-medium text-sm">{formatAmount(payment.amount, 'USD')}</p>
                   <Badge 
                     variant={
                       payment.status === "paid" ? "default" : 

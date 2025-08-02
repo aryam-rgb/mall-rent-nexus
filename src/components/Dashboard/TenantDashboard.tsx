@@ -1,29 +1,110 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Home, CreditCard, Calendar, Wrench, AlertCircle, CheckCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/hooks/useCurrency";
+
+interface LeaseInfo {
+  property_name: string;
+  unit_number: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  currency: string;
+  status: string;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  payment_date: string;
+  status: string;
+  due_date: string;
+}
+
+interface MaintenanceRequest {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+  status: string;
+  priority: string;
+}
 
 export const TenantDashboard = () => {
-  const leaseInfo = {
-    property: "Shopping Center A - Unit 101",
-    startDate: "Jan 1, 2024",
-    endDate: "Dec 31, 2024",
-    monthlyRent: "$2,500",
-    status: "active"
+  const [leaseInfo, setLeaseInfo] = useState<LeaseInfo | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
+  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
+  const { formatAmount } = useCurrency();
+
+  useEffect(() => {
+    if (profile) {
+      fetchTenantData();
+    }
+  }, [profile]);
+
+  const fetchTenantData = async () => {
+    if (!profile) return;
+
+    try {
+      // Fetch tenant's active lease
+      const { data: leaseData } = await supabase
+        .from('leases')
+        .select(`
+          start_date,
+          end_date,
+          monthly_rent,
+          currency,
+          status,
+          properties!inner(name, unit_number)
+        `)
+        .eq('tenant_id', profile.id)
+        .eq('status', 'active')
+        .single();
+
+      if (leaseData) {
+        setLeaseInfo({
+          property_name: leaseData.properties.name,
+          unit_number: leaseData.properties.unit_number,
+          start_date: leaseData.start_date,
+          end_date: leaseData.end_date,
+          monthly_rent: leaseData.monthly_rent,
+          currency: leaseData.currency,
+          status: leaseData.status
+        });
+      }
+
+      // Fetch payment history
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('id, amount, payment_date, due_date, status')
+        .eq('tenant_id', profile.id)
+        .order('payment_date', { ascending: false })
+        .limit(6);
+
+      setPaymentHistory(paymentsData || []);
+
+      // Fetch maintenance requests
+      const { data: maintenanceData } = await supabase
+        .from('maintenance_requests')
+        .select('id, title, description, created_at, status, priority')
+        .eq('tenant_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setMaintenanceRequests(maintenanceData || []);
+
+    } catch (error) {
+      console.error('Error fetching tenant data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const paymentHistory = [
-    { month: "November 2024", amount: "$2,500", date: "Nov 1, 2024", status: "paid" },
-    { month: "October 2024", amount: "$2,500", date: "Oct 1, 2024", status: "paid" },
-    { month: "September 2024", amount: "$2,500", date: "Sep 1, 2024", status: "paid" },
-    { month: "August 2024", amount: "$2,500", date: "Aug 1, 2024", status: "paid" }
-  ];
-
-  const maintenanceRequests = [
-    { id: 1, issue: "Air conditioning not working", date: "Nov 15, 2024", status: "in-progress", priority: "high" },
-    { id: 2, issue: "Leaky faucet in restroom", date: "Nov 10, 2024", status: "completed", priority: "medium" },
-    { id: 3, issue: "Lighting fixture replacement", date: "Nov 5, 2024", status: "completed", priority: "low" }
-  ];
 
   return (
     <div className="space-y-6">
@@ -43,24 +124,30 @@ export const TenantDashboard = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Property</p>
-              <p className="text-lg font-semibold">{leaseInfo.property}</p>
+          {loading ? (
+            <div className="text-center py-4">Loading lease information...</div>
+          ) : leaseInfo ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Property</p>
+                <p className="text-lg font-semibold">{leaseInfo.property_name} - {leaseInfo.unit_number}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Lease Period</p>
+                <p className="text-lg font-semibold">{new Date(leaseInfo.start_date).toLocaleDateString()} - {new Date(leaseInfo.end_date).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
+                <p className="text-lg font-semibold">{formatAmount(leaseInfo.monthly_rent, leaseInfo.currency as 'USD' | 'UGX')}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Status</p>
+                <Badge variant="default">{leaseInfo.status}</Badge>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Monthly Rent</p>
-              <p className="text-lg font-semibold">{leaseInfo.monthlyRent}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Lease Period</p>
-              <p className="text-sm">{leaseInfo.startDate} - {leaseInfo.endDate}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant="default">Active</Badge>
-            </div>
-          </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">No active lease found</div>
+          )}
         </CardContent>
       </Card>
 
@@ -80,33 +167,26 @@ export const TenantDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-green-800">
-                  November rent paid on time
-                </span>
-              </div>
-              <p className="text-xs text-green-600 mt-1">
-                Next payment due: December 1, 2024
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Payment History</h4>
-              {paymentHistory.map((payment, index) => (
-                <div key={index} className="flex items-center justify-between p-2 border rounded">
+            {loading ? (
+              <div className="text-center py-4">Loading payment history...</div>
+            ) : paymentHistory.length > 0 ? (
+              paymentHistory.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
-                    <p className="text-sm font-medium">{payment.month}</p>
-                    <p className="text-xs text-muted-foreground">{payment.date}</p>
+                    <p className="font-medium text-sm">{new Date(payment.payment_date).toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
+                    <p className="text-xs text-muted-foreground">Due: {new Date(payment.due_date).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">{payment.amount}</p>
-                    <Badge variant="default" className="text-xs">Paid</Badge>
+                    <p className="font-medium text-sm">{formatAmount(payment.amount, 'USD')}</p>
+                    <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'pending' ? 'secondary' : 'destructive'}>
+                      {payment.status}
+                    </Badge>
                   </div>
                 </div>
-              ))}
-            </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">No payment history found</div>
+            )}
           </CardContent>
         </Card>
 
@@ -125,38 +205,45 @@ export const TenantDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {maintenanceRequests.map((request) => (
-              <div key={request.id} className="p-3 border rounded-lg">
-                <div className="flex items-start justify-between">
+            {loading ? (
+              <div className="text-center py-4">Loading maintenance requests...</div>
+            ) : maintenanceRequests.length > 0 ? (
+              maintenanceRequests.map((request) => (
+                <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{request.issue}</p>
-                    <p className="text-xs text-muted-foreground">{request.date}</p>
+                    <p className="font-medium text-sm">{request.title}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(request.created_at).toLocaleDateString()}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center gap-2">
                     <Badge 
                       variant={
-                        request.status === "completed" ? "default" :
-                        request.status === "in-progress" ? "secondary" :
+                        request.priority === "high" ? "destructive" : 
+                        request.priority === "medium" ? "secondary" : 
                         "outline"
                       }
-                      className="text-xs"
-                    >
-                      {request.status}
-                    </Badge>
-                    <Badge 
-                      variant={
-                        request.priority === "high" ? "destructive" :
-                        request.priority === "medium" ? "secondary" :
-                        "outline"
-                      }
-                      className="text-xs ml-1"
                     >
                       {request.priority}
                     </Badge>
+                    <Badge 
+                      variant={
+                        request.status === "completed" ? "default" : 
+                        request.status === "in-progress" ? "secondary" : 
+                        "outline"
+                      }
+                    >
+                      {request.status === "completed" ? (
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                      ) : request.status === "in-progress" ? (
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                      ) : null}
+                      {request.status}
+                    </Badge>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">No maintenance requests found</div>
+            )}
           </CardContent>
         </Card>
       </div>

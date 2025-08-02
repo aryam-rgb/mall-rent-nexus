@@ -1,44 +1,153 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Users, DollarSign, Wrench, TrendingUp, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useCurrency } from "@/hooks/useCurrency";
+
+interface DashboardStats {
+  totalProperties: number;
+  totalTenants: number;
+  monthlyRevenue: number;
+  pendingMaintenance: number;
+  urgentMaintenance: number;
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'payment' | 'lease' | 'maintenance' | 'user';
+  message: string;
+  time: string;
+  created_at: string;
+}
 
 export const SuperAdminDashboard = () => {
-  const stats = [
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProperties: 0,
+    totalTenants: 0,
+    monthlyRevenue: 0,
+    pendingMaintenance: 0,
+    urgentMaintenance: 0
+  });
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { formatAmount } = useCurrency();
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch properties count
+      const { count: propertiesCount } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch tenants count (profiles with role 'tenant')
+      const { count: tenantsCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'tenant');
+
+      // Fetch this month's revenue
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('status', 'paid')
+        .gte('payment_date', `${currentMonth}-01`);
+
+      const monthlyRevenue = paymentsData?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+
+      // Fetch maintenance requests
+      const { count: pendingCount } = await supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      const { count: urgentCount } = await supabase
+        .from('maintenance_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('priority', 'high')
+        .eq('status', 'pending');
+
+      // Fetch recent activities (payments from last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: recentPayments } = await supabase
+        .from('payments')
+        .select('id, amount, payment_date, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      const activities: RecentActivity[] = recentPayments?.map(payment => ({
+        id: payment.id,
+        type: 'payment' as const,
+        message: `Payment of ${formatAmount(Number(payment.amount), 'USD')} received`,
+        time: formatTimeAgo(payment.created_at),
+        created_at: payment.created_at
+      })) || [];
+
+      setStats({
+        totalProperties: propertiesCount || 0,
+        totalTenants: tenantsCount || 0,
+        monthlyRevenue,
+        pendingMaintenance: pendingCount || 0,
+        urgentMaintenance: urgentCount || 0
+      });
+
+      setRecentActivities(activities);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Less than an hour ago';
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
+  const dashboardStats = [
     {
       title: "Total Properties",
-      value: "24",
-      change: "+2 this month",
+      value: loading ? "..." : stats.totalProperties.toString(),
+      change: "Managed properties",
       icon: Building2,
       color: "bg-blue-500"
     },
     {
       title: "Active Tenants",
-      value: "187",
-      change: "+12 this month",
+      value: loading ? "..." : stats.totalTenants.toString(),
+      change: "Registered tenants",
       icon: Users,
       color: "bg-green-500"
     },
     {
       title: "Monthly Revenue",
-      value: "$145,720",
-      change: "+8.2% from last month",
+      value: loading ? "..." : formatAmount(stats.monthlyRevenue, 'USD'),
+      change: "This month's payments",
       icon: DollarSign,
       color: "bg-purple-500"
     },
     {
       title: "Pending Maintenance",
-      value: "8",
-      change: "3 urgent",
+      value: loading ? "..." : stats.pendingMaintenance.toString(),
+      change: `${stats.urgentMaintenance} urgent`,
       icon: Wrench,
       color: "bg-orange-500"
     }
-  ];
-
-  const recentActivities = [
-    { type: "payment", message: "Tenant John Smith paid $2,500 for Unit 101", time: "2 hours ago" },
-    { type: "lease", message: "New lease signed for Unit 205", time: "4 hours ago" },
-    { type: "maintenance", message: "Maintenance request submitted for Unit 301", time: "6 hours ago" },
-    { type: "user", message: "New landlord account created: Sarah Johnson", time: "1 day ago" }
   ];
 
   return (
@@ -52,7 +161,7 @@ export const SuperAdminDashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => {
+        {dashboardStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card key={index}>
