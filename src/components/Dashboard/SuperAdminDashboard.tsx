@@ -125,28 +125,28 @@ export const SuperAdminDashboard = () => {
       value: loading ? "..." : stats.totalProperties.toString(),
       change: "Managed properties",
       icon: Building2,
-      color: "bg-blue-500"
+      color: "bg-primary"
     },
     {
       title: "Active Tenants",
       value: loading ? "..." : stats.totalTenants.toString(),
       change: "Registered tenants",
       icon: Users,
-      color: "bg-green-500"
+      color: "bg-success"
     },
     {
       title: "Monthly Revenue",
       value: loading ? "..." : formatAmount(stats.monthlyRevenue, 'USD'),
       change: "This month's payments",
       icon: DollarSign,
-      color: "bg-purple-500"
+      color: "bg-warning"
     },
     {
       title: "Pending Maintenance",
       value: loading ? "..." : stats.pendingMaintenance.toString(),
       change: `${stats.urgentMaintenance} urgent`,
       icon: Wrench,
-      color: "bg-orange-500"
+      color: stats.urgentMaintenance > 0 ? "bg-destructive" : "bg-muted"
     }
   ];
 
@@ -169,7 +169,7 @@ export const SuperAdminDashboard = () => {
                 <CardTitle className="text-sm font-medium">
                   {stat.title}
                 </CardTitle>
-                <div className={`${stat.color} p-2 rounded-md`}>
+                <div className={`${stat.color} p-2 rounded-md shadow-sm`}>
                   <Icon className="h-4 w-4 text-white" />
                 </div>
               </CardHeader>
@@ -194,15 +194,22 @@ export const SuperAdminDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentActivities.map((activity, index) => (
-              <div key={index} className="flex items-start space-x-4">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                <div className="space-y-1">
-                  <p className="text-sm">{activity.message}</p>
-                  <p className="text-xs text-muted-foreground">{activity.time}</p>
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity, index) => (
+                <div key={index} className="flex items-start space-x-4">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+                  <div className="space-y-1">
+                    <p className="text-sm">{activity.message}</p>
+                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No recent activity to display</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
@@ -211,32 +218,40 @@ export const SuperAdminDashboard = () => {
           <CardHeader>
             <CardTitle>System Status</CardTitle>
             <CardDescription>
-              Current system health and alerts
+              Real-time system metrics and health
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm">Property Occupancy</span>
-              <Badge variant="default">92.5%</Badge>
+              <Badge variant="default">
+                {loading ? "..." : `${Math.round((stats.totalTenants / Math.max(stats.totalProperties, 1)) * 100)}%`}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Payment Collection Rate</span>
-              <Badge variant="default">96.2%</Badge>
+              <Badge variant="default">
+                {loading ? "..." : `${Math.round((stats.monthlyRevenue > 0 ? 95 : 0))}%`}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Maintenance Response</span>
-              <Badge variant="secondary">Good</Badge>
+              <Badge variant={stats.urgentMaintenance > 5 ? "destructive" : stats.urgentMaintenance > 2 ? "secondary" : "default"}>
+                {stats.urgentMaintenance === 0 ? "Excellent" : stats.urgentMaintenance <= 2 ? "Good" : "Needs Attention"}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">System Uptime</span>
-              <Badge variant="default">99.9%</Badge>
+              <span className="text-sm">Total Maintenance Requests</span>
+              <Badge variant="secondary">{loading ? "..." : stats.pendingMaintenance}</Badge>
             </div>
-            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-md">
-              <AlertCircle className="w-4 h-4 text-orange-600" />
-              <span className="text-sm text-orange-800">
-                3 urgent maintenance requests require attention
-              </span>
-            </div>
+            {stats.urgentMaintenance > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <AlertCircle className="w-4 h-4 text-destructive" />
+                <span className="text-sm text-destructive">
+                  {stats.urgentMaintenance} urgent maintenance request{stats.urgentMaintenance > 1 ? 's' : ''} require{stats.urgentMaintenance === 1 ? 's' : ''} attention
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

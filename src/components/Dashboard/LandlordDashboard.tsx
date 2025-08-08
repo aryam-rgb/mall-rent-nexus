@@ -134,28 +134,28 @@ export const LandlordDashboard = () => {
       value: loading ? "..." : stats.myProperties.toString(),
       change: `${properties.filter(p => p.status === 'occupied').length}/${stats.myProperties} occupied`,
       icon: Building2,
-      color: "bg-blue-500"
+      color: "bg-primary"
     },
     {
       title: "Active Tenants",
       value: loading ? "..." : stats.activeTenants.toString(),
       change: "Current leases",
       icon: Users,
-      color: "bg-green-500"
+      color: "bg-success"
     },
     {
       title: "Monthly Income",
       value: loading ? "..." : formatAmount(stats.monthlyIncome, 'USD'),
       change: "This month's revenue",
       icon: DollarSign,
-      color: "bg-purple-500"
+      color: "bg-warning"
     },
     {
       title: "Maintenance Requests",
       value: loading ? "..." : stats.maintenanceRequests.toString(),
       change: `${stats.urgentMaintenance} urgent`,
       icon: Wrench,
-      color: "bg-orange-500"
+      color: stats.urgentMaintenance > 0 ? "bg-destructive" : "bg-muted"
     }
   ];
 
@@ -184,7 +184,7 @@ export const LandlordDashboard = () => {
                 <CardTitle className="text-sm font-medium">
                   {stat.title}
                 </CardTitle>
-                <div className={`${stat.color} p-2 rounded-md`}>
+                <div className={`${stat.color} p-2 rounded-md shadow-sm`}>
                   <Icon className="h-4 w-4 text-white" />
                 </div>
               </CardHeader>
@@ -209,20 +209,28 @@ export const LandlordDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {properties.map((property) => (
-              <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">{property.name} - {property.unit_number}</p>
-                  <p className="text-xs text-muted-foreground">{property.tenant_name}</p>
+            {properties.length > 0 ? (
+              properties.map((property) => (
+                <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">{property.name} - {property.unit_number}</p>
+                    <p className="text-xs text-muted-foreground">{property.tenant_name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-sm">{formatAmount(property.rent_amount, property.currency as 'USD' | 'UGX')}</p>
+                    <Badge variant={property.status === "occupied" ? "default" : "secondary"}>
+                      {property.status}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-sm">{formatAmount(property.rent_amount, property.currency as 'USD' | 'UGX')}</p>
-                  <Badge variant={property.status === "occupied" ? "default" : "secondary"}>
-                    {property.status}
-                  </Badge>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Building2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No properties to display</p>
+                <p className="text-xs">Add your first property to get started</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
@@ -235,26 +243,34 @@ export const LandlordDashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentPayments.map((payment, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">{payment.tenant_name}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(payment.payment_date).toLocaleDateString()}</p>
+            {recentPayments.length > 0 ? (
+              recentPayments.map((payment, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">{payment.tenant_name}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(payment.payment_date).toLocaleDateString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-sm">{formatAmount(payment.amount, 'USD')}</p>
+                    <Badge 
+                      variant={
+                        payment.status === "paid" ? "default" : 
+                        payment.status === "pending" ? "secondary" : 
+                        "destructive"
+                      }
+                    >
+                      {payment.status}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-sm">{formatAmount(payment.amount, 'USD')}</p>
-                  <Badge 
-                    variant={
-                      payment.status === "paid" ? "default" : 
-                      payment.status === "pending" ? "secondary" : 
-                      "destructive"
-                    }
-                  >
-                    {payment.status}
-                  </Badge>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No payment history</p>
+                <p className="text-xs">Payments will appear here once tenants start paying</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </div>
