@@ -3,10 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Users, Mail, Phone } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Users, Mail, Phone, Building2, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -25,13 +26,25 @@ interface UserWithProperties extends UserProfile {
   properties: string[];
 }
 
+interface Property {
+  id: string;
+  name: string;
+  location: string;
+  unit_number: string;
+  status: string;
+}
+
 export const UserManagement = () => {
   const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [users, setUsers] = useState<UserWithProperties[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithProperties | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -40,10 +53,33 @@ export const UserManagement = () => {
     role: "",
     password: ""
   });
+  const [editUser, setEditUser] = useState({
+    id: "",
+    name: "",
+    email: "",
+    username: "",
+    phone: "",
+    role: ""
+  });
 
   useEffect(() => {
     fetchUsers();
+    fetchProperties();
   }, []);
+
+  const fetchProperties = async () => {
+    try {
+      const { data: propertiesData, error } = await supabase
+        .from('properties')
+        .select('id, name, location, unit_number, status')
+        .eq('status', 'available');
+
+      if (error) throw error;
+      setProperties(propertiesData || []);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -113,7 +149,6 @@ export const UserManagement = () => {
     }
 
     try {
-      // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
@@ -121,7 +156,8 @@ export const UserManagement = () => {
           data: {
             name: newUser.name,
             role: newUser.role,
-            username: newUser.username || newUser.name.toLowerCase().replace(/\s+/g, '')
+            username: newUser.username || newUser.name.toLowerCase().replace(/\s+/g, ''),
+            phone: newUser.phone
           }
         }
       });
@@ -136,6 +172,111 @@ export const UserManagement = () => {
       console.error('Error creating user:', error);
       toast.error(error.message || 'Failed to create user');
     }
+  };
+
+  const handleEditUser = async () => {
+    if (!editUser.name || !editUser.email || !editUser.role) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: editUser.name,
+          email: editUser.email,
+          username: editUser.username,
+          phone: editUser.phone,
+          role: editUser.role
+        })
+        .eq('id', editUser.id);
+
+      if (error) throw error;
+
+      toast.success('User updated successfully');
+      setIsEditDialogOpen(false);
+      setEditUser({ id: "", name: "", email: "", username: "", phone: "", role: "" });
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast.error(error.message || 'Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      // First delete the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      toast.success('User deleted successfully');
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || 'Failed to delete user');
+    }
+  };
+
+  const handleAssignUnit = async (userId: string, propertyId: string) => {
+    try {
+      // Create a new lease for the tenant
+      const today = new Date();
+      const oneYearLater = new Date();
+      oneYearLater.setFullYear(today.getFullYear() + 1);
+
+      const { error: leaseError } = await supabase
+        .from('leases')
+        .insert({
+          property_id: propertyId,
+          tenant_id: userId,
+          landlord_id: profile?.id,
+          start_date: today.toISOString().split('T')[0],
+          end_date: oneYearLater.toISOString().split('T')[0],
+          monthly_rent: 1000, // Default rent, can be customized
+          deposit: 1000,
+          status: 'active'
+        });
+
+      if (leaseError) throw leaseError;
+
+      // Update property status to occupied
+      const { error: propertyError } = await supabase
+        .from('properties')
+        .update({ status: 'occupied' })
+        .eq('id', propertyId);
+
+      if (propertyError) throw propertyError;
+
+      toast.success('Unit assigned successfully');
+      setIsUnitDialogOpen(false);
+      fetchUsers();
+      fetchProperties();
+    } catch (error: any) {
+      console.error('Error assigning unit:', error);
+      toast.error(error.message || 'Failed to assign unit');
+    }
+  };
+
+  const openEditDialog = (user: UserWithProperties) => {
+    setEditUser({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      username: user.username || "",
+      phone: user.phone || "",
+      role: user.role
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openUnitDialog = (user: UserWithProperties) => {
+    setSelectedUser(user);
+    setIsUnitDialogOpen(true);
   };
 
   const filteredUsers = users.filter(user => {
@@ -398,14 +539,38 @@ export const UserManagement = () => {
                     
                     {profile?.role === 'superadmin' && (
                       <div className="flex gap-2 ml-4">
-                        <Button size="sm" variant="outline" className="gap-1">
+                        <Button size="sm" variant="outline" className="gap-1" onClick={() => openEditDialog(user)}>
                           <Edit className="w-3 h-3" />
                           Edit
                         </Button>
-                        <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
-                          <Trash2 className="w-3 h-3" />
-                          Delete
-                        </Button>
+                        {user.role === 'tenant' && (
+                          <Button size="sm" variant="outline" className="gap-1" onClick={() => openUnitDialog(user)}>
+                            <Building2 className="w-3 h-3" />
+                            Assign Unit
+                          </Button>
+                        )}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                              <Trash2 className="w-3 h-3" />
+                              Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the user account and remove all associated data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(user.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Delete User
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     )}
                   </div>
@@ -415,6 +580,132 @@ export const UserManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and role
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="editUserName">Full Name *</Label>
+                <Input 
+                  id="editUserName" 
+                  placeholder="Enter full name" 
+                  value={editUser.name}
+                  onChange={(e) => setEditUser({...editUser, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editUserUsername">Username</Label>
+                <Input 
+                  id="editUserUsername" 
+                  placeholder="Enter unique username" 
+                  value={editUser.username}
+                  onChange={(e) => setEditUser({...editUser, username: e.target.value})}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editUserEmail">Email *</Label>
+              <Input 
+                id="editUserEmail" 
+                type="email" 
+                placeholder="Enter email address" 
+                value={editUser.email}
+                onChange={(e) => setEditUser({...editUser, email: e.target.value})}
+              />
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="editUserPhone">Phone</Label>
+                <Input 
+                  id="editUserPhone" 
+                  placeholder="Enter phone number" 
+                  value={editUser.phone}
+                  onChange={(e) => setEditUser({...editUser, phone: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editUserRole">Role *</Label>
+                <Select value={editUser.role} onValueChange={(value) => setEditUser({...editUser, role: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="landlord">Landlord</SelectItem>
+                    <SelectItem value="tenant">Tenant</SelectItem>
+                    {profile?.role === 'superadmin' && (
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleEditUser}>Update User</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unit Assignment Dialog */}
+      <Dialog open={isUnitDialogOpen} onOpenChange={setIsUnitDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Assign Unit to {selectedUser?.name}</DialogTitle>
+            <DialogDescription>
+              Select an available unit to assign to this tenant
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {properties.length === 0 ? (
+              <div className="text-center py-8">
+                <AlertTriangle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <div className="text-muted-foreground">No available units found</div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  All units are currently occupied or there are no properties added yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {properties.map((property) => (
+                  <Card key={property.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold">{property.name}</h4>
+                          <p className="text-sm text-muted-foreground">Unit {property.unit_number}</p>
+                          <p className="text-sm text-muted-foreground">{property.location}</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => selectedUser && handleAssignUnit(selectedUser.id, property.id)}
+                        >
+                          Assign Unit
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsUnitDialogOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
