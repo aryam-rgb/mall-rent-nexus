@@ -15,7 +15,7 @@ interface DashboardStats {
 
 interface RecentActivity {
   id: string;
-  type: 'payment' | 'lease' | 'maintenance' | 'user';
+  type: 'payment' | 'lease' | 'maintenance' | 'user' | 'property';
   message: string;
   time: string;
   created_at: string;
@@ -72,24 +72,73 @@ export const SuperAdminDashboard = () => {
         .eq('priority', 'high')
         .eq('status', 'pending');
 
-      // Fetch recent activities (payments from last 7 days)
+      // Fetch recent activities (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
+      // Fetch recent payments
       const { data: recentPayments } = await supabase
         .from('payments')
         .select('id, amount, payment_date, created_at')
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
-      const activities: RecentActivity[] = recentPayments?.map(payment => ({
-        id: payment.id,
-        type: 'payment' as const,
-        message: `Payment of ${formatAmount(Number(payment.amount), 'USD')} received`,
-        time: formatTimeAgo(payment.created_at),
-        created_at: payment.created_at
-      })) || [];
+      // Fetch recent property additions
+      const { data: recentProperties } = await supabase
+        .from('properties')
+        .select('id, name, location, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Fetch recent lease creations
+      const { data: recentLeases } = await supabase
+        .from('leases')
+        .select('id, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Fetch recent maintenance requests
+      const { data: recentMaintenance } = await supabase
+        .from('maintenance_requests')
+        .select('id, title, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Combine all activities
+      const activities: RecentActivity[] = [
+        ...(recentPayments?.map(payment => ({
+          id: payment.id,
+          type: 'payment' as const,
+          message: `Payment of ${formatAmount(Number(payment.amount), 'USD')} received`,
+          time: formatTimeAgo(payment.created_at),
+          created_at: payment.created_at
+        })) || []),
+        ...(recentProperties?.map(property => ({
+          id: property.id,
+          type: 'property' as const,
+          message: `New property "${property.name}" added in ${property.location}`,
+          time: formatTimeAgo(property.created_at),
+          created_at: property.created_at
+        })) || []),
+        ...(recentLeases?.map(lease => ({
+          id: lease.id,
+          type: 'lease' as const,
+          message: `New lease agreement created`,
+          time: formatTimeAgo(lease.created_at),
+          created_at: lease.created_at
+        })) || []),
+        ...(recentMaintenance?.map(request => ({
+          id: request.id,
+          type: 'maintenance' as const,
+          message: `Maintenance request: ${request.title}`,
+          time: formatTimeAgo(request.created_at),
+          created_at: request.created_at
+        })) || [])
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
 
       setStats({
         totalProperties: propertiesCount || 0,
