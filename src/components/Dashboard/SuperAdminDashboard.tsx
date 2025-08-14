@@ -35,6 +35,51 @@ export const SuperAdminDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+
+    // Set up real-time subscriptions
+    const paymentsChannel = supabase
+      .channel('payments-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    const propertiesChannel = supabase
+      .channel('properties-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    const profilesChannel = supabase
+      .channel('profiles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    const maintenanceChannel = supabase
+      .channel('maintenance-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_requests' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    const leasesChannel = supabase
+      .channel('leases-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leases' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      supabase.removeChannel(paymentsChannel);
+      supabase.removeChannel(propertiesChannel);
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(maintenanceChannel);
+      supabase.removeChannel(leasesChannel);
+    };
   }, []);
 
   const fetchDashboardData = async () => {
