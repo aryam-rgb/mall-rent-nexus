@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Building2, Users, DollarSign, Wrench, TrendingUp, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
 interface DashboardStats {
   totalProperties: number;
@@ -30,6 +32,7 @@ export const SuperAdminDashboard = () => {
     urgentMaintenance: 0
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { formatAmount } = useCurrency();
 
@@ -99,11 +102,33 @@ export const SuperAdminDashboard = () => {
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
       const { data: paymentsData } = await supabase
         .from('payments')
-        .select('amount')
+        .select('amount, payment_date')
         .eq('status', 'paid')
         .gte('payment_date', `${currentMonth}-01`);
 
       const monthlyRevenue = paymentsData?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+
+      // Fetch monthly revenue data for chart (last 6 months)
+      const { data: monthlyData } = await supabase
+        .from('payments')
+        .select('amount, payment_date')
+        .eq('status', 'paid')
+        .gte('payment_date', new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().slice(0, 10));
+
+      // Group payments by month for chart
+      const monthlyChart = monthlyData?.reduce((acc, payment) => {
+        const month = payment.payment_date.slice(0, 7);
+        const monthName = new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        if (!acc[month]) {
+          acc[month] = { month: monthName, revenue: 0 };
+        }
+        acc[month].revenue += Number(payment.amount);
+        return acc;
+      }, {} as Record<string, { month: string; revenue: number }>) || {};
+
+      const chartDataArray = Object.values(monthlyChart).sort((a, b) => 
+        new Date(a.month).getTime() - new Date(b.month).getTime()
+      );
 
       // Fetch maintenance requests
       const { count: pendingCount } = await supabase
@@ -194,6 +219,7 @@ export const SuperAdminDashboard = () => {
       });
 
       setRecentActivities(activities);
+      setChartData(chartDataArray);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -276,6 +302,94 @@ export const SuperAdminDashboard = () => {
             </Card>
           );
         })}
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Revenue Trend Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue Trend</CardTitle>
+            <CardDescription>
+              Monthly revenue over the last 6 months
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={{
+                revenue: {
+                  label: "Revenue",
+                  color: "hsl(var(--primary))",
+                },
+              }}
+              className="h-[200px]"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `$${value.toLocaleString()}`}
+                  />
+                  <ChartTooltip
+                    content={<ChartTooltipContent />}
+                    formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="hsl(var(--primary))"
+                    fill="hsl(var(--primary))"
+                    fillOpacity={0.2}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Property Status Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Property Overview</CardTitle>
+            <CardDescription>
+              Distribution of property metrics
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-3">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <span className="font-medium">Total Properties</span>
+                </div>
+                <span className="text-2xl font-bold">{stats.totalProperties}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-success" />
+                  <span className="font-medium">Occupied Units</span>
+                </div>
+                <span className="text-2xl font-bold">{stats.totalTenants}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-3">
+                  <Wrench className="h-5 w-5 text-warning" />
+                  <span className="font-medium">Maintenance Requests</span>
+                </div>
+                <span className="text-2xl font-bold">{stats.pendingMaintenance}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
