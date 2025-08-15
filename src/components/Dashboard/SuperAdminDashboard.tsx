@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Users, DollarSign, Wrench, TrendingUp, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Users, DollarSign, Wrench, TrendingUp, AlertCircle, Settings, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
+import { MaintenancePortalReal } from "@/components/Maintenance/MaintenancePortalReal";
+import { PaymentPortalReal } from "@/components/Payments/PaymentPortalReal";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DashboardStats {
   totalProperties: number;
@@ -24,6 +28,7 @@ interface RecentActivity {
 }
 
 export const SuperAdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState("overview");
   const [stats, setStats] = useState<DashboardStats>({
     totalProperties: 0,
     totalTenants: 0,
@@ -272,12 +277,36 @@ export const SuperAdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">System Overview</h2>
-        <p className="text-muted-foreground">
-          Comprehensive view of all properties, users, and system activities
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
+          <p className="text-muted-foreground">
+            Comprehensive management of properties, tenants, and system activities
+          </p>
+        </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview" className="gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-2">
+            <CreditCard className="w-4 h-4" />
+            Payments
+          </TabsTrigger>
+          <TabsTrigger value="maintenance" className="gap-2">
+            <Wrench className="w-4 h-4" />
+            Maintenance
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings className="w-4 h-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -463,6 +492,52 @@ export const SuperAdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="payments">
+          <PaymentPortalReal userRole="superadmin" />
+        </TabsContent>
+
+        <TabsContent value="maintenance">
+          <MaintenancePortalReal userRole="superadmin" />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Settings</CardTitle>
+              <CardDescription>
+                Configure system-wide settings and preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">Currency Management</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Manage currency settings and exchange rates
+                  </p>
+                  <Button variant="outline" size="sm">Configure Currency</Button>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">Payment Methods</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Configure available payment methods for tenants
+                  </p>
+                  <Button variant="outline" size="sm">Manage Payment Methods</Button>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">User Management</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Manage user accounts and permissions
+                  </p>
+                  <Button variant="outline" size="sm">Manage Users</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
