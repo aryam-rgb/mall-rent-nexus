@@ -6,8 +6,8 @@ import { LandlordDashboard } from "@/components/Dashboard/LandlordDashboard";
 import { TenantDashboard } from "@/components/Dashboard/TenantDashboard";
 import { PropertyManagement } from "@/components/Properties/PropertyManagementReal";
 import { LeaseManagement } from "@/components/Leases/LeaseManagement";
-import { PaymentPortal } from "@/components/Payments/PaymentPortal";
-import { MaintenancePortal } from "@/components/Maintenance/MaintenancePortal";
+import { PaymentPortalReal } from "@/components/Payments/PaymentPortalReal";
+import { MaintenancePortalReal } from "@/components/Maintenance/MaintenancePortalReal";
 import { UserManagement } from "@/components/Users/UserManagement";
 import { CurrencySettings } from "@/components/Settings/CurrencySettings";
 import { PaymentMethodsSettings } from "@/components/Settings/PaymentMethodsSettings";
@@ -49,10 +49,10 @@ const Index = () => {
         return <LeaseManagement />;
       
       case "payments":
-        return <PaymentPortal userRole={profile.role} />;
+        return <PaymentPortalReal userRole={profile.role} />;
       
       case "maintenance":
-        return <MaintenancePortal userRole={profile.role} />;
+        return <MaintenancePortalReal userRole={profile.role} />;
       
       case "settings":
         return profile.role === "superadmin" ? (
