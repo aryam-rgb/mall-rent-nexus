@@ -49,6 +49,8 @@ export const MaintenancePortalReal = ({ userRole }: { userRole: string }) => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -465,7 +467,15 @@ export const MaintenancePortalReal = ({ userRole }: { userRole: string }) => {
                   </div>
                   
                   <div className="flex gap-2 ml-4">
-                    <Button size="sm" variant="outline" className="gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="gap-1"
+                      onClick={() => {
+                        setSelectedRequest(request);
+                        setIsViewDialogOpen(true);
+                      }}
+                    >
                       <Eye className="w-3 h-3" />
                       View
                     </Button>
@@ -495,6 +505,89 @@ export const MaintenancePortalReal = ({ userRole }: { userRole: string }) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Request Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Maintenance Request Details</DialogTitle>
+            <DialogDescription>
+              Full details of the maintenance request
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {getStatusIcon(selectedRequest.status)}
+                <h3 className="text-lg font-semibold">{selectedRequest.title}</h3>
+                <Badge variant={getStatusVariant(selectedRequest.status)}>
+                  {selectedRequest.status}
+                </Badge>
+                <Badge variant={getPriorityVariant(selectedRequest.priority)}>
+                  {selectedRequest.priority} priority
+                </Badge>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label>Description</Label>
+                  <div className="mt-1 p-3 bg-muted/50 rounded-md">
+                    <p className="text-sm">{selectedRequest.description}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Property</Label>
+                    <p className="text-sm font-medium mt-1">
+                      {selectedRequest.properties ? 
+                        `${selectedRequest.properties.name} - ${selectedRequest.properties.location} (${selectedRequest.properties.unit_number})` :
+                        'N/A'
+                      }
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Assigned To</Label>
+                    <p className="text-sm font-medium mt-1">
+                      {selectedRequest.assigned_to || "Unassigned"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Submitted On</Label>
+                    <p className="text-sm font-medium mt-1">
+                      {formatDate(selectedRequest.created_at)}
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Last Updated</Label>
+                    <p className="text-sm font-medium mt-1">
+                      {formatDate(selectedRequest.updated_at)}
+                    </p>
+                  </div>
+                </div>
+                
+                {userRole !== "tenant" && (
+                  <div>
+                    <Label>Tenant</Label>
+                    <p className="text-sm font-medium mt-1">
+                      {selectedRequest.tenant_profile?.name || 'N/A'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
