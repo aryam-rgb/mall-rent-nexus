@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
 import { SuperAdminDashboard } from "@/components/Dashboard/SuperAdminDashboard";
 import { LandlordDashboard } from "@/components/Dashboard/LandlordDashboard";
-import { TenantDashboard } from "@/components/Dashboard/TenantDashboard";
+import { TenantDashboardReal } from "@/components/Dashboard/TenantDashboardReal";
 import { PropertyManagement } from "@/components/Properties/PropertyManagementReal";
 import { LeaseManagement } from "@/components/Leases/LeaseManagement";
 import { PaymentPortalReal } from "@/components/Payments/PaymentPortalReal";
@@ -11,6 +11,7 @@ import { MaintenancePortalReal } from "@/components/Maintenance/MaintenancePorta
 import { UserManagement } from "@/components/Users/UserManagement";
 import { CurrencySettings } from "@/components/Settings/CurrencySettings";
 import { PaymentMethodsSettings } from "@/components/Settings/PaymentMethodsSettings";
+import { NoticeManagement } from "@/components/Notices/NoticeManagement";
 import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
@@ -35,7 +36,7 @@ const Index = () => {
       case "dashboard":
         if (profile.role === "superadmin") return <SuperAdminDashboard />;
         if (profile.role === "landlord") return <LandlordDashboard />;
-        return <TenantDashboard />;
+        return <TenantDashboardReal />;
       
       case "users":
         return profile.role === "superadmin" ? <UserManagement /> : <div>Access denied</div>;
@@ -53,6 +54,10 @@ const Index = () => {
       
       case "maintenance":
         return <MaintenancePortalReal userRole={profile.role} />;
+      
+      case "notices":
+        return (profile.role === "landlord" || profile.role === "superadmin") ? 
+          <NoticeManagement /> : <div>Access denied</div>;
       
       case "settings":
         return profile.role === "superadmin" ? (

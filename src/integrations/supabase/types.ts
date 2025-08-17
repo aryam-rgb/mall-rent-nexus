@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -45,6 +45,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lease_history: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          lease_id: string | null
+          property_id: string
+          reason: string | null
+          start_date: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          lease_id?: string | null
+          property_id: string
+          reason?: string | null
+          start_date: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          lease_id?: string | null
+          property_id?: string
+          reason?: string | null
+          start_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_history_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lease_renewal_requests: {
+        Row: {
+          created_at: string
+          id: string
+          landlord_id: string
+          lease_id: string
+          request_message: string | null
+          requested_end_date: string
+          requested_rent: number | null
+          responded_at: string | null
+          response_message: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          landlord_id: string
+          lease_id: string
+          request_message?: string | null
+          requested_end_date: string
+          requested_rent?: number | null
+          responded_at?: string | null
+          response_message?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          landlord_id?: string
+          lease_id?: string
+          request_message?: string | null
+          requested_end_date?: string
+          requested_rent?: number | null
+          responded_at?: string | null
+          response_message?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       leases: {
         Row: {
@@ -186,6 +272,56 @@ export type Database = {
           },
         ]
       }
+      notices: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_urgent: boolean | null
+          property_id: string | null
+          read_status: Json | null
+          recipient_id: string | null
+          recipient_type: string
+          sender_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_urgent?: boolean | null
+          property_id?: string | null
+          read_status?: Json | null
+          recipient_id?: string | null
+          recipient_type?: string
+          sender_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_urgent?: boolean | null
+          property_id?: string | null
+          read_status?: Json | null
+          recipient_id?: string | null
+          recipient_type?: string
+          sender_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notices_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_methods: {
         Row: {
           created_at: string
@@ -215,6 +351,76 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      payment_uploads: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          payment_id: string | null
+          payment_month: string
+          reference_number: string | null
+          tenant_id: string | null
+          updated_at: string
+          upload_type: string
+          upload_url: string
+          verified: boolean | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_id?: string | null
+          payment_month: string
+          reference_number?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          upload_type?: string
+          upload_url: string
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_id?: string | null
+          payment_month?: string
+          reference_number?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          upload_type?: string
+          upload_url?: string
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_uploads_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_uploads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_uploads_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -403,10 +609,10 @@ export type Database = {
       get_user_by_username_or_email: {
         Args: { identifier: string }
         Returns: {
-          user_id: string
           email: string
-          username: string
           role: string
+          user_id: string
+          username: string
         }[]
       }
     }
