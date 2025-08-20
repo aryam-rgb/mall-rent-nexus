@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Plus, Search, Edit, Trash2, MapPin, Square } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Building2, Plus, Search, Edit, Trash2, MapPin, Square, Filter, SortAsc, SortDesc } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -29,6 +30,9 @@ interface Property {
 
 export const PropertyManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -199,11 +203,47 @@ export const PropertyManagement = () => {
     }
   };
 
-  const filteredProperties = properties.filter(property =>
-    property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    property.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    property.unit_number.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAndSortedProperties = properties
+    .filter(property => {
+      const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.unit_number.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || property.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case "name":
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case "rent":
+          aValue = a.rent_amount;
+          bValue = b.rent_amount;
+          break;
+        case "size":
+          aValue = a.size_sqft;
+          bValue = b.size_sqft;
+          break;
+        case "status":
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+      }
+      
+      if (sortOrder === "asc") {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -372,7 +412,7 @@ export const PropertyManagement = () => {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -382,89 +422,141 @@ export const PropertyManagement = () => {
             className="pl-10"
           />
         </div>
+        
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="occupied">Occupied</SelectItem>
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="rent">Rent</SelectItem>
+              <SelectItem value="size">Size</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+          >
+            {sortOrder === "asc" ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProperties.map((property) => (
-          <Card key={property.id} className="group hover:shadow-lg transition-shadow">
-            <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
-              {property.image_url && (
-                <img
-                  src={property.image_url}
-                  alt={property.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              )}
-            </div>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-lg line-clamp-1">{property.name}</CardTitle>
-                <Badge className={getStatusColor(property.status)}>
-                  {property.status}
-                </Badge>
-              </div>
-              <div className="flex items-center text-muted-foreground text-sm">
-                <MapPin className="w-4 h-4 mr-1" />
-                {property.location}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Unit</p>
-                  <p className="font-medium">{property.unit_number}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Size</p>
-                  <p className="font-medium flex items-center">
-                    <Square className="w-3 h-3 mr-1" />
-                    {property.size_sqft.toLocaleString()} sq ft
-                  </p>
-                </div>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm">Monthly Rent</p>
-                <p className="text-lg font-bold text-primary">
-                  {formatRentAmount(property.rent_amount, property.currency)}
-                </p>
-              </div>
-              {property.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {property.description}
-                </p>
-              )}
-              <div className="flex gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditDialog(property)}
-                  className="flex-1"
-                >
-                  <Edit className="w-4 h-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(property.id)}
-                  className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Properties ({filteredAndSortedProperties.length})</CardTitle>
+          <CardDescription>Manage all your property listings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Property</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Size</TableHead>
+                <TableHead>Rent</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedProperties.map((property) => (
+                <TableRow key={property.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-muted rounded overflow-hidden">
+                        {property.image_url && (
+                          <img
+                            src={property.image_url}
+                            alt={property.name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium">{property.name}</div>
+                        {property.description && (
+                          <div className="text-sm text-muted-foreground truncate max-w-48">
+                            {property.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center text-muted-foreground">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      {property.location}
+                    </div>
+                  </TableCell>
+                  <TableCell>{property.unit_number}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <Square className="w-3 h-3 mr-1" />
+                      {property.size_sqft.toLocaleString()} sq ft
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {formatRentAmount(property.rent_amount, property.currency)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(property.status)}>
+                      {property.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(property)}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(property.id)}
+                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-      {filteredProperties.length === 0 && (
+      {filteredAndSortedProperties.length === 0 && (
         <Card className="p-12 text-center">
           <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No properties found</h3>
           <p className="text-muted-foreground mb-4">
-            {searchTerm ? "No properties match your search." : "Start by adding your first property."}
+            {searchTerm || statusFilter !== "all" ? "No properties match your filters." : "Start by adding your first property."}
           </p>
-          {!searchTerm && (
+          {!searchTerm && statusFilter === "all" && (
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Add Your First Property

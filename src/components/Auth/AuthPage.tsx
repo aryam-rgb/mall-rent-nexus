@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { Building2, Mail, Lock, User, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import loginBg from "@/assets/login-bg.jpg";
 
 export const AuthPage = () => {
   const [isLogin] = useState(true); // Only login allowed
@@ -37,8 +38,17 @@ export const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${loginBg})` }}
+      >
+        <div className="absolute inset-0 bg-black/40" />
+      </div>
+      
+      {/* Content */}
+      <Card className="w-full max-w-md relative z-10 bg-background/95 backdrop-blur-sm border-border/50 shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-4">
             <Building2 className="h-6 w-6 text-primary-foreground" />
